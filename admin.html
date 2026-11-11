@@ -68,6 +68,11 @@
         </button>
       </div>
 
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding:6px 10px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); font-size:11.5px;">
+        <span style="color:#94A3B8; font-weight:700;">📡 Telemetría desde Móvil:</span>
+        <span id="admin-sensor-heartbeat" style="color:#FFB800; font-weight:800;">● Esperando sensor armado...</span>
+      </div>
+
       <!-- Slider A: Tolerancia de Movimiento -->
       <div class="calibration-row">
         <div class="calibration-header">
@@ -386,6 +391,7 @@
         currentLap: 1,
         lapSplits: [],
         bestLapMs: 0,
+        photoFinishDataUrl: "",
         falseStartReason: "",
         lastUpdated: Date.now()
       });
@@ -419,8 +425,22 @@
     document.getElementById("btn-start-countdown").addEventListener("click", () => {
       clearInterval(countdownTimer);
       const pilotName = (inputPilot.value || "PILOTO 01").trim().toUpperCase();
-      const targetLaps = currentConfig ? (currentConfig.targetLaps || 1) : 1;
+      const targetLaps = currentConfig ? (currentConfig.targetLaps || 1) : Number(sliderLaps.value || 1);
+      const checkedMode = document.querySelector('input[name="sensorMode"]:checked');
       let count = 3;
+
+      // Garantizar que el teléfono reciba la configuración activa antes de largar
+      rtdb.updateNode("config", {
+        sensorMode: checkedMode ? checkedMode.value : (currentConfig?.sensorMode || "vision"),
+        motionThreshold: Number(sliderMotion.value),
+        audioThreshold: Number(sliderAudio.value),
+        lightThreshold: Number(sliderLight.value),
+        cooldownMs: Number(sliderCooldown.value),
+        targetLaps,
+        propellerFilter: chkPropFilter.checked,
+        useTorchFlash: chkTorchFlash.checked,
+        voiceAnnouncer: chkVoiceAnnouncer.checked
+      });
 
       rtdb.updateNode("race", {
         status: "COUNTDOWN",
@@ -434,6 +454,7 @@
         targetLaps,
         lapSplits: [],
         bestLapMs: 0,
+        photoFinishDataUrl: "",
         falseStartReason: "",
         lastUpdated: Date.now()
       });
@@ -528,6 +549,7 @@
         currentLap: 1,
         lapSplits: [],
         bestLapMs: 0,
+        photoFinishDataUrl: "",
         falseStartReason: "",
         lastUpdated: Date.now()
       });
@@ -603,8 +625,18 @@
       chkVoiceAnnouncer.checked = cfg.voiceAnnouncer !== false;
     });
 
+    let lastTelPerf = 0;
+    const sensorHeartbeatEl = document.getElementById("admin-sensor-heartbeat");
+
     rtdb.subscribe("telemetry", (tel) => {
       if (!tel) return;
+      if (tel.sensorOnline) {
+        lastTelPerf = performance.now();
+        if (sensorHeartbeatEl) {
+          sensorHeartbeatEl.textContent = "● Recibiendo en vivo";
+          sensorHeartbeatEl.style.color = "#00FF66";
+        }
+      }
       document.getElementById("live-val-motion").textContent = `${tel.liveMotion || 0}%`;
       document.getElementById("bar-live-motion").style.width = `${tel.liveMotion || 0}%`;
 
@@ -614,6 +646,14 @@
       document.getElementById("live-val-light").textContent = `${tel.liveLight || 0}%`;
       document.getElementById("bar-live-light").style.width = `${tel.liveLight || 0}%`;
     });
+
+    setInterval(() => {
+      if (!sensorHeartbeatEl || lastTelPerf === 0) return;
+      if (performance.now() - lastTelPerf > 4500) {
+        sensorHeartbeatEl.textContent = "● Sin telemetría reciente (>4s)";
+        sensorHeartbeatEl.style.color = "#FFB800";
+      }
+    }, 1000);
 
     rtdb.subscribe("race", (race) => {
       if (!race) return;

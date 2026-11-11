@@ -184,6 +184,9 @@
     let bestRecordMs = 0;
     let voiceEnabled = true;
     let lastSpokenStateKey = "";
+    let lastDashRaceStatus = "IDLE";
+    let trackedRunToken = 0;
+    let localRunStartPerf = 0;
 
     function speakAnnouncer(text) {
       if (!voiceEnabled || !("speechSynthesis" in window)) return;
@@ -239,6 +242,21 @@
 
     rtdb.subscribe("race", (race) => {
       if (!race) return;
+      const prevStatus = lastDashRaceStatus;
+      lastDashRaceStatus = race.status || "IDLE";
+
+      if (race.status === "RUNNING") {
+        const token = race.startTime || 1;
+        if (prevStatus !== "RUNNING" || trackedRunToken !== token) {
+          trackedRunToken = token;
+          const rawDiff = race.startTime ? (Date.now() - race.startTime) : 0;
+          const safeOffset = (rawDiff > 0 && rawDiff < 300000 && prevStatus !== "COUNTDOWN") ? rawDiff : 0;
+          localRunStartPerf = performance.now() - safeOffset;
+        }
+      } else {
+        trackedRunToken = 0;
+      }
+
       raceState = race;
       pilotEl.textContent = race.pilotName || "MAVERICK FPV";
       nextPilotEl.textContent = `⏭️ PREPARÁNDOSE: ${race.nextPilotName || "VALKYRIE"}`;
@@ -368,8 +386,10 @@
     function updateChronoDisplay() {
       if (raceState.status === "COUNTDOWN") {
         digitsEl.textContent = `00:0${raceState.countdownValue}.00`;
-      } else if (raceState.status === "RUNNING" && raceState.startTime > 0) {
-        const elapsed = Date.now() - raceState.startTime;
+      } else if (raceState.status === "RUNNING") {
+        const elapsed = localRunStartPerf > 0
+          ? Math.max(0, performance.now() - localRunStartPerf)
+          : Math.max(0, Date.now() - (raceState.startTime || Date.now()));
         digitsEl.textContent = formatRaceTime(elapsed);
 
         if (bestRecordMs > 0) {

@@ -106,19 +106,21 @@
 
     let lastPlayedCountdownVal = null;
     let lastHandledCalibCmd = 0;
-    let lastLapCrossTimestamp = 0;
+    let localRunStartPerf = 0;
+    let lastLapCrossPerf = 0;
+    let lastTestFeedbackPerf = 0;
     let testFeedbackTimeout = null;
 
-    // Conexión Nube en vivo
-    rtdb.onCloudStatus(({ connected, room }) => {
+    // Conexión Nube en vivo (Triple Redundancia: MQTT + HTTPS-443 + LAN)
+    rtdb.onCloudStatus(({ connected, message, room }) => {
       if (connected) {
         cloudDot.style.background = "#00FF66";
         cloudDot.style.boxShadow = "0 0 10px #00FF66";
-        cloudText.textContent = `Nube: ${room}`;
+        cloudText.textContent = message || `Nube: ${room}`;
       } else {
         cloudDot.style.background = "#FF1E42";
         cloudDot.style.boxShadow = "0 0 10px #FF1E42";
-        cloudText.textContent = `Reconectando: ${room}`;
+        cloudText.textContent = message || `Reconectando: ${room}`;
       }
     });
 
@@ -176,10 +178,15 @@
      */
     async function handleSensorTrigger(event) {
       const now = Date.now();
+      const perfNow = performance.now();
 
       // 0. MODO PRUEBA EN REPOSO (IDLE o FINISHED):
       // Permite al usuario tapar la cámara para comprobar que la detección funciona perfectamente
       if (currentRace.status === "IDLE" || currentRace.status === "FINISHED") {
+        if (event.mode === "light" && event.type === "LIGHT_OPENED") return;
+        if (perfNow - lastTestFeedbackPerf < 1100) return;
+        lastTestFeedbackPerf = perfNow;
+
         buzzer.playShortTick();
         if (navigator.vibrate) navigator.vibrate(60);
 
@@ -219,18 +226,21 @@
         return;
       }
 
-      // 2. CRUCE DE VUELTA O LLEGADA A META DURANTE RUNNING
-      if (currentRace.status === "RUNNING" && currentRace.startTime > 0) {
+      // 2. CRUCE DE VUELTA O LLEGADA A META DURANTE RUNNING (Inmune a desfase de reloj PC vs Móvil)
+      if (currentRace.status === "RUNNING") {
+        if (localRunStartPerf <= 0) {
+          localRunStartPerf = perfNow;
+        }
         const cooldown = currentConfig.cooldownMs || 2500;
-        const referenceTime = lastLapCrossTimestamp > currentRace.startTime ? lastLapCrossTimestamp : currentRace.startTime;
+        const referencePerf = lastLapCrossPerf > 0 ? lastLapCrossPerf : localRunStartPerf;
 
-        // Respetar el Cooldown anti-rebote desde el despegue o desde la última vuelta marcada
-        if (now - referenceTime < cooldown) return;
+        // Respetar el Cooldown anti-rebote usando el reloj interno del teléfono
+        if (perfNow - referencePerf < cooldown) return;
 
         if (event.mode === "light" && event.type !== "LIGHT_BLOCKED") return;
 
-        lastLapCrossTimestamp = now;
-        const totalElapsed = now - currentRace.startTime;
+        lastLapCrossPerf = perfNow;
+        const totalElapsed = Math.max(10, Math.round(perfNow - localRunStartPerf));
         const splits = Array.isArray(currentRace.lapSplits) ? [...currentRace.lapSplits] : [];
         const prevSplitsSum = splits.reduce((a, b) => a + b, 0);
         const thisLapMs = Math.max(1, totalElapsed - prevSplitsSum);
@@ -320,11 +330,13 @@
 
       if (race.status === "IDLE") {
         lastPlayedCountdownVal = null;
-        lastLapCrossTimestamp = 0;
+        localRunStartPerf = 0;
+        lastLapCrossPerf = 0;
         mainDisplay.textContent = "LISTO";
         subDisplay.textContent = `EN PISTA: ${race.pilotName || "PILOTO 01"} · ESPERANDO ORDEN DEL ADMIN`;
       } else if (race.status === "COUNTDOWN") {
-        lastLapCrossTimestamp = 0;
+        localRunStartPerf = 0;
+        lastLapCrossPerf = 0;
         mainDisplay.textContent = race.countdownValue;
         subDisplay.textContent = "¡ATENCIÓN EN PISTA! NO DESPEGAR ANTES DE CERO";
         if (race.countdownValue !== lastPlayedCountdownVal) {
@@ -332,7 +344,9 @@
           buzzer.playShortTick();
         }
       } else if (race.status === "RUNNING") {
-        if (prevStatus === "COUNTDOWN") {
+        if (prevStatus !== "RUNNING") {
+          localRunStartPerf = performance.now();
+          lastLapCrossPerf = 0;
           buzzer.playLongGo();
           sensorEngine.pulseTorchFlash(350);
         }
