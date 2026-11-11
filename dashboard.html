@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>LED Public Telemetry PRO · Drone Race Chrono</title>
   <link rel="stylesheet" href="./css/styles.css" />
+  <script src="./js/paho-mqtt.min.js"></script>
 </head>
 <body class="dashboard-page">
   <header class="topbar">
@@ -14,6 +15,10 @@
     </div>
 
     <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+      <div id="dash-cloud-badge" class="status-pill" style="cursor:pointer;" title="Toca para cambiar de sala">
+        <span class="status-dot" id="dash-cloud-dot" style="background:#FFB800; box-shadow:0 0 10px #FFB800;"></span>
+        <span id="dash-cloud-text">Nube: Conectando...</span>
+      </div>
       <div class="status-pill">
         <span class="status-dot"></span>
         <span id="dash-sensor-badge">SENSOR: VISIÓN ARTIFICIAL</span>
@@ -131,6 +136,32 @@
     const leaderboardEl = document.getElementById("dash-leaderboard-list");
     const sensorBadge = document.getElementById("dash-sensor-badge");
     const btnToggleVoice = document.getElementById("btn-toggle-voice");
+    const dashCloudBadge = document.getElementById("dash-cloud-badge");
+    const dashCloudDot = document.getElementById("dash-cloud-dot");
+    const dashCloudText = document.getElementById("dash-cloud-text");
+
+    rtdb.onCloudStatus(({ connected, room }) => {
+      if (connected) {
+        dashCloudDot.style.background = "#00FF66";
+        dashCloudDot.style.boxShadow = "0 0 10px #00FF66";
+        dashCloudText.textContent = `Nube: ${room}`;
+      } else {
+        dashCloudDot.style.background = "#FF1E42";
+        dashCloudDot.style.boxShadow = "0 0 10px #FF1E42";
+        dashCloudText.textContent = `Reconectando: ${room}`;
+      }
+    });
+
+    if (dashCloudBadge) {
+      dashCloudBadge.addEventListener("click", () => {
+        const actual = rtdb.getRoomId();
+        const nuevo = prompt("Ingresa el nombre de la Sala:", actual);
+        if (nuevo && nuevo.trim()) {
+          rtdb.setRoomId(nuevo.trim());
+        }
+      });
+    }
+
     const f1Lights = [
       document.getElementById("f1-l1"),
       document.getElementById("f1-l2"),

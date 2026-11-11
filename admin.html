@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin Race Control PRO · Drone Chrono</title>
   <link rel="stylesheet" href="./css/styles.css" />
+  <script src="./js/paho-mqtt.min.js"></script>
 </head>
 <body>
   <header class="topbar">
@@ -15,9 +16,9 @@
     <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
       <a href="./sensor.html" target="_blank" class="status-pill" style="text-decoration:none; color:#00E5FF;">📱 Abrir Sensor</a>
       <a href="./dashboard.html" target="_blank" class="status-pill" style="text-decoration:none; color:#00FF66;">📺 Abrir Dashboard LED</a>
-      <div class="status-pill">
+      <div class="status-pill" id="admin-cloud-pill" style="cursor:pointer;" title="Toca para cambiar de sala">
         <span id="sensor-online-dot" class="status-dot"></span>
-        <span id="db-mode-label">CONECTADO EN TIEMPO REAL</span>
+        <span id="db-mode-label">Conectando a Nube...</span>
       </div>
     </div>
   </header>
@@ -253,6 +254,32 @@
     const adminStatus = document.getElementById("admin-race-status");
     const adminTimer = document.getElementById("admin-timer-preview");
     const adminLapCounter = document.getElementById("admin-lap-counter");
+
+    const dbModeLabel = document.getElementById("db-mode-label");
+    const sensorOnlineDot = document.getElementById("sensor-online-dot");
+    const adminCloudPill = document.getElementById("admin-cloud-pill");
+
+    rtdb.onCloudStatus(({ connected, room }) => {
+      if (connected) {
+        sensorOnlineDot.style.background = "#00FF66";
+        sensorOnlineDot.style.boxShadow = "0 0 10px #00FF66";
+        dbModeLabel.textContent = `Nube: ${room} (En vivo)`;
+      } else {
+        sensorOnlineDot.style.background = "#FF1E42";
+        sensorOnlineDot.style.boxShadow = "0 0 10px #FF1E42";
+        dbModeLabel.textContent = `Reconectando Nube: ${room}`;
+      }
+    });
+
+    if (adminCloudPill) {
+      adminCloudPill.addEventListener("click", () => {
+        const actual = rtdb.getRoomId();
+        const nuevo = prompt("Ingresa el nombre de la Sala para sincronizar el Teléfono de Pista y este Administrador:", actual);
+        if (nuevo && nuevo.trim()) {
+          rtdb.setRoomId(nuevo.trim());
+        }
+      });
+    }
 
     let currentConfig = null;
     let currentRaceState = null;

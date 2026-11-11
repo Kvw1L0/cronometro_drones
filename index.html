@@ -91,6 +91,11 @@
       <div class="brand-badge" style="display:inline-block; margin-bottom:12px;">FPV RACING OFFICIAL CHRONO</div>
       <h1>SISTEMA DE CRONOMETRAJE WEB</h1>
       <p>Selecciona el módulo correspondiente para tu dispositivo en el evento.</p>
+      <div style="margin-top:16px; display:inline-flex; align-items:center; gap:8px; background:var(--bg-card); border:1px solid var(--border-subtle); padding:6px 16px; border-radius:20px; font-size:13px; font-weight:700;">
+        <span class="status-dot"></span>
+        <span>Sala Activa:</span>
+        <input id="hub-room-input" type="text" value="pista_fpv" style="background:rgba(255,255,255,0.08); border:1px solid var(--border-subtle); color:#00E5FF; padding:4px 10px; border-radius:8px; font-family:'JetBrains Mono', monospace; font-size:13px; font-weight:800; width:140px; text-align:center; outline:none;" />
+      </div>
     </div>
 
     <div class="hub-cards">
@@ -131,5 +136,23 @@
       </a>
     </div>
   </div>
+
+  <script>
+    const roomInput = document.getElementById("hub-room-input");
+    const saved = localStorage.getItem("drone_chrono_room") || "pista_fpv";
+    roomInput.value = saved;
+
+    function updateLinks() {
+      const room = (roomInput.value || "pista_fpv").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_");
+      localStorage.setItem("drone_chrono_room", room);
+      document.querySelectorAll(".hub-card").forEach(card => {
+        const base = card.getAttribute("href").split("?")[0];
+        card.setAttribute("href", `${base}?sala=${room}`);
+      });
+    }
+
+    roomInput.addEventListener("input", updateLinks);
+    updateLinks();
+  </script>
 </body>
 </html>

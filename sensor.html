@@ -9,14 +9,21 @@
   <link rel="manifest" href="./manifest.json" />
   <title>Track Sensor PWA PRO · Drone Chrono</title>
   <link rel="stylesheet" href="./css/styles.css" />
+  <script src="./js/paho-mqtt.min.js"></script>
 </head>
 <body class="sensor-page state-IDLE">
   <div class="sensor-hud">
     <!-- BARRA SUPERIOR DEL SENSOR EN PISTA -->
     <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
-      <div class="status-pill" style="background:rgba(0,0,0,0.45);">
-        <span class="status-dot"></span>
-        <span id="sensor-mode-badge">MODO: VISIÓN</span>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <div class="status-pill" style="background:rgba(0,0,0,0.45);">
+          <span class="status-dot"></span>
+          <span id="sensor-mode-badge">MODO: VISIÓN</span>
+        </div>
+        <div id="sensor-cloud-badge" class="status-pill" style="background:rgba(0,0,0,0.45); cursor:pointer;" title="Toca para cambiar de sala">
+          <span class="status-dot" id="cloud-status-dot" style="background:#FFB800; box-shadow:0 0 10px #FFB800;"></span>
+          <span id="cloud-status-text">Conectando Nube...</span>
+        </div>
       </div>
 
       <div style="display:flex; gap:8px;">
@@ -44,7 +51,7 @@
 
     <!-- PREVIEW DE CÁMARA + CANVAS DE PROCESAMIENTO OCULTO + TELEMETRÍA EN VIVO -->
     <div>
-      <div class="sensor-cam-box">
+      <div class="sensor-cam-box" id="sensor-cam-container">
         <video id="sensor-video" playsinline autoplay muted></video>
         <canvas id="sensor-proc-canvas" style="display:none;"></canvas>
       </div>
@@ -70,6 +77,10 @@
     const wakeBadge = document.getElementById("wakelock-badge");
     const btnArm = document.getElementById("btn-arm-hardware");
     const btnSwitchCam = document.getElementById("btn-switch-cam");
+    const cloudBadge = document.getElementById("sensor-cloud-badge");
+    const cloudDot = document.getElementById("cloud-status-dot");
+    const cloudText = document.getElementById("cloud-status-text");
+    const camContainer = document.getElementById("sensor-cam-container");
 
     const buzzer = new SoundBuzzer();
     let currentConfig = {
@@ -96,6 +107,28 @@
     let lastPlayedCountdownVal = null;
     let lastHandledCalibCmd = 0;
     let lastLapCrossTimestamp = 0;
+    let testFeedbackTimeout = null;
+
+    // Conexión Nube en vivo
+    rtdb.onCloudStatus(({ connected, room }) => {
+      if (connected) {
+        cloudDot.style.background = "#00FF66";
+        cloudDot.style.boxShadow = "0 0 10px #00FF66";
+        cloudText.textContent = `Nube: ${room}`;
+      } else {
+        cloudDot.style.background = "#FF1E42";
+        cloudDot.style.boxShadow = "0 0 10px #FF1E42";
+        cloudText.textContent = `Reconectando: ${room}`;
+      }
+    });
+
+    cloudBadge.addEventListener("click", () => {
+      const actual = rtdb.getRoomId();
+      const nuevo = prompt("Ingresa el nombre de la Sala para conectar Celular y Computador:", actual);
+      if (nuevo && nuevo.trim()) {
+        rtdb.setRoomId(nuevo.trim());
+      }
+    });
 
     const sensorEngine = new MultiSensorEngine(
       videoEl,
@@ -106,6 +139,7 @@
         document.getElementById("tel-audio").textContent = `${metrics.audio}%`;
         document.getElementById("tel-light").textContent = `${metrics.light}%`;
 
+        // Transmisión en vivo de telemetría hacia el PC / Dashboard del juez
         rtdb.updateNode("telemetry", {
           liveMotion: metrics.motion,
           liveAudio: metrics.audio,
@@ -126,7 +160,7 @@
           wakeBadge.textContent = active ? "🔒 WakeLock: ACTIVO" : "🔓 WakeLock: Inactivo";
         });
         btnArm.style.display = "none";
-        subDisplay.textContent = "SENSOR ARMADO EN PISTA · ESPERANDO ORDEN DEL ADMIN";
+        subDisplay.textContent = `SENSOR ARMADO EN PISTA · ESPERANDO ORDEN DEL ADMIN (${rtdb.getRoomId().toUpperCase()})`;
       } catch (err) {
         alert("Permite el acceso a Cámara y Micrófono para usar el teléfono como sensor: " + err.message);
       }
@@ -138,10 +172,38 @@
     });
 
     /**
-     * Lógica central de disparo del sensor (Falsa Salida, Split de Vuelta Intermedia y Meta con Foto-Finish)
+     * Lógica central de disparo del sensor (Prueba en Reposo, Falsa Salida, Split de Vuelta y Meta)
      */
     async function handleSensorTrigger(event) {
       const now = Date.now();
+
+      // 0. MODO PRUEBA EN REPOSO (IDLE o FINISHED):
+      // Permite al usuario tapar la cámara para comprobar que la detección funciona perfectamente
+      if (currentRace.status === "IDLE" || currentRace.status === "FINISHED") {
+        buzzer.playShortTick();
+        if (navigator.vibrate) navigator.vibrate(60);
+
+        if (camContainer) {
+          camContainer.style.borderColor = "#00FF66";
+          camContainer.style.boxShadow = "0 0 25px rgba(0,255,102,0.6)";
+        }
+
+        subDisplay.textContent = `🎯 ¡SENSOR DETECTANDO! (${event.mode.toUpperCase()}: ${event.value}%)`;
+
+        clearTimeout(testFeedbackTimeout);
+        testFeedbackTimeout = setTimeout(() => {
+          if (camContainer) {
+            camContainer.style.borderColor = "rgba(255, 255, 255, 0.35)";
+            camContainer.style.boxShadow = "none";
+          }
+          if (currentRace.status === "IDLE") {
+            subDisplay.textContent = `EN PISTA: ${currentRace.pilotName || "PILOTO 01"} · ESPERANDO ORDEN DEL ADMIN`;
+          } else if (currentRace.status === "FINISHED") {
+            subDisplay.textContent = `🏁 META REGISTRADA (${currentRace.pilotName})`;
+          }
+        }, 1100);
+        return;
+      }
 
       // 1. DETECCIÓN DE FALSA SALIDA DURANTE EL CONTEO (3, 2, 1)
       if (currentRace.status === "COUNTDOWN") {
@@ -220,7 +282,7 @@
       }
     }
 
-    // Escuchar configuración y comando de Auto-Calibración de 3s desde Admin
+    // Escuchar configuración y comando de Auto-Calibración desde Admin
     rtdb.subscribe("config", (cfg) => {
       if (!cfg) return;
       currentConfig = cfg;
@@ -247,7 +309,7 @@
       }
     });
 
-    // Escuchar estado de la carrera
+    // Escuchar estado de la carrera transmitido desde Admin
     rtdb.subscribe("race", (race) => {
       if (!race) return;
       const prevStatus = currentRace.status;
@@ -260,7 +322,7 @@
         lastPlayedCountdownVal = null;
         lastLapCrossTimestamp = 0;
         mainDisplay.textContent = "LISTO";
-        subDisplay.textContent = `EN PISTA: ${race.pilotName || "PILOTO 01"}`;
+        subDisplay.textContent = `EN PISTA: ${race.pilotName || "PILOTO 01"} · ESPERANDO ORDEN DEL ADMIN`;
       } else if (race.status === "COUNTDOWN") {
         lastLapCrossTimestamp = 0;
         mainDisplay.textContent = race.countdownValue;
