@@ -112,6 +112,8 @@ export class MultiSensorEngine {
     this.calibSamples = [];
     this.lastTriggerTimestamp = 0;
     this.lastTelemetryPush = 0;
+    this.windowPeakMotion = 0;
+    this.windowPeakAudio = 0;
   }
 
   updateConfig(newConfig) {
@@ -359,6 +361,9 @@ export class MultiSensorEngine {
     this.processVideoFrame();
     this.processAudioLevel();
 
+    this.windowPeakMotion = Math.max(this.windowPeakMotion, this.metrics.motion);
+    this.windowPeakAudio = Math.max(this.windowPeakAudio, this.metrics.audio);
+
     if (this.isCalibrating) {
       this.calibSamples.push({ ...this.metrics });
     }
@@ -366,7 +371,15 @@ export class MultiSensorEngine {
     const now = performance.now();
     if (now - this.lastTelemetryPush > 150 && this.onTelemetry) {
       this.lastTelemetryPush = now;
-      this.onTelemetry({ ...this.metrics, calibrating: this.isCalibrating });
+      const snapshot = {
+        motion: this.windowPeakMotion,
+        audio: this.windowPeakAudio,
+        light: this.metrics.light,
+        calibrating: this.isCalibrating
+      };
+      this.windowPeakMotion = 0;
+      this.windowPeakAudio = 0;
+      this.onTelemetry(snapshot);
     }
 
     if (!this.isCalibrating) {
