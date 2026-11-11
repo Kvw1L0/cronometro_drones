@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Race Control PRO · Drone Chrono</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand-title">
+      <span>🚁 DRONE RACE CHRONO</span>
+      <span class="brand-badge">RACE DIRECTOR PRO</span>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+      <a href="./sensor.html" target="_blank" class="status-pill" style="text-decoration:none; color:#00E5FF;">📱 Abrir Sensor</a>
+      <a href="./dashboard.html" target="_blank" class="status-pill" style="text-decoration:none; color:#00FF66;">📺 Abrir Dashboard LED</a>
+      <div class="status-pill">
+        <span id="sensor-online-dot" class="status-dot"></span>
+        <span id="db-mode-label">CONECTADO EN TIEMPO REAL</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="admin-grid">
+    <!-- COLUMNA IZQUIERDA: SELECCIÓN DE SENSOR, FUSIÓN Y CALIBRACIÓN EN VIVO -->
+    <section class="panel-card">
+      <div class="panel-title">
+        <span>1. Método de Sensor en Pista (4 Modos)</span>
+        <span id="active-sensor-pill" style="font-size:11px; color:#00FF66;">ACTIVO: VISIÓN ARTIFICIAL</span>
+      </div>
+
+      <div class="sensor-selector-grid">
+        <label class="sensor-radio-card active" id="card-mode-vision">
+          <input type="radio" name="sensorMode" value="vision" checked />
+          <span class="icon">👁️</span>
+          <span class="title">Opción A: Visión</span>
+          <span class="sub">Cambio Píxeles</span>
+        </label>
+
+        <label class="sensor-radio-card" id="card-mode-audio">
+          <input type="radio" name="sensorMode" value="audio" />
+          <span class="icon">🎙️</span>
+          <span class="title">Opción B: Acústico</span>
+          <span class="sub">Motores (1.2-4.5kHz)</span>
+        </label>
+
+        <label class="sensor-radio-card" id="card-mode-light">
+          <input type="radio" name="sensorMode" value="light" />
+          <span class="icon">☀️</span>
+          <span class="title">Opción C: Luz</span>
+          <span class="sub">Fotómetro Sombra</span>
+        </label>
+
+        <label class="sensor-radio-card" id="card-mode-fusion">
+          <input type="radio" name="sensorMode" value="fusion" />
+          <span class="icon">🛡️</span>
+          <span class="title">Opción D: Fusión</span>
+          <span class="sub">Visión + Audio (0% Error)</span>
+        </label>
+      </div>
+
+      <div class="panel-title" style="margin-top: 18px;">
+        <span>2. Sliders de Calibración en Vivo</span>
+        <button id="btn-auto-calibrate" class="status-pill" style="cursor:pointer; background:rgba(255,184,0,0.18); border-color:#FFB800; color:#FFB800;">
+          🪄 Auto-Calibrar Ambiente (3s)
+        </button>
+      </div>
+
+      <!-- Slider A: Tolerancia de Movimiento -->
+      <div class="calibration-row">
+        <div class="calibration-header">
+          <span>👁️ Umbral de Movimiento (Opción A - Píxeles)</span>
+          <span class="calibration-values">Actual: <strong id="live-val-motion">0%</strong> | Umbral: <strong id="lbl-motion">28%</strong></span>
+        </div>
+        <input id="slider-motion" type="range" min="5" max="95" value="28" />
+        <div class="live-meter-track">
+          <div id="bar-live-motion" class="live-meter-fill"></div>
+          <div id="marker-motion" class="threshold-marker" style="left: 28%;"></div>
+        </div>
+      </div>
+
+      <!-- Slider B: Umbral de Ruido -->
+      <div class="calibration-row">
+        <div class="calibration-header">
+          <span>🎙️ Umbral de Ruido de Motores (Opción B - Decibeles)</span>
+          <span class="calibration-values">Actual: <strong id="live-val-audio">0%</strong> | Umbral: <strong id="lbl-audio">62%</strong></span>
+        </div>
+        <input id="slider-audio" type="range" min="5" max="98" value="62" />
+        <div class="live-meter-track">
+          <div id="bar-live-audio" class="live-meter-fill"></div>
+          <div id="marker-audio" class="threshold-marker" style="left: 62%;"></div>
+        </div>
+      </div>
+
+      <!-- Slider C: Umbral de Luz -->
+      <div class="calibration-row">
+        <div class="calibration-header">
+          <span>☀️ Umbral de Luminosidad (Opción C - Fotómetro)</span>
+          <span class="calibration-values">Actual: <strong id="live-val-light">50%</strong> | Umbral: <strong id="lbl-light">40%</strong></span>
+        </div>
+        <input id="slider-light" type="range" min="5" max="95" value="40" />
+        <div class="live-meter-track">
+          <div id="bar-live-light" class="live-meter-fill"></div>
+          <div id="marker-light" class="threshold-marker" style="left: 40%;"></div>
+        </div>
+      </div>
+
+      <!-- Cooldown y Número de Vueltas -->
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+        <div class="calibration-row" style="margin-bottom:0;">
+          <div class="calibration-header">
+            <span>🛡️ Anti-Rebote Vuelta</span>
+            <span class="calibration-values"><strong id="lbl-cooldown">2.5s</strong></span>
+          </div>
+          <input id="slider-cooldown" type="range" min="1000" max="8000" step="250" value="2500" />
+        </div>
+
+        <div class="calibration-row" style="margin-bottom:0;">
+          <div class="calibration-header">
+            <span>🔄 Modo Vueltas</span>
+            <span class="calibration-values"><strong id="lbl-laps">1 Vuelta</strong></span>
+          </div>
+          <input id="slider-laps" type="range" min="1" max="5" step="1" value="1" />
+        </div>
+      </div>
+
+      <!-- Chips de Filtros Pro -->
+      <div class="pro-options-bar">
+        <label class="toggle-chip" title="Ignora música y voz humana (80-400Hz) y escucha solo las hélices del dron (1200-4500Hz)">
+          <input type="checkbox" id="chk-prop-filter" checked />
+          <span>🔊 Filtro FFT Hélices (1.2-4.5kHz)</span>
+        </label>
+
+        <label class="toggle-chip" title="Enciende el flash LED físico del celular al dar GO! y al cruzar la meta">
+          <input type="checkbox" id="chk-torch-flash" checked />
+          <span>🔦 Flash LED en Celular (Torch)</span>
+        </label>
+
+        <label class="toggle-chip" title="Narra el inicio, vueltas y récords por voz en el Dashboard LED">
+          <input type="checkbox" id="chk-voice-announcer" checked />
+          <span>🎙️ Comentarista IA en Dashboard</span>
+        </label>
+      </div>
+    </section>
+
+    <!-- COLUMNA DERECHA: COLA DE PILOTOS (ROSTER), MANDO DE CARRERA Y FOTO-FINISH -->
+    <section class="panel-card">
+      <div class="panel-title">
+        <span>3. Control Oficial de Carrera & Roster</span>
+        <span id="admin-race-status" style="color:#FFB800;">ESTADO: IDLE</span>
+      </div>
+
+      <!-- Selector rápido de Cola de Pilotos (Roster) -->
+      <div style="margin-bottom: 12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <label style="font-size:11.5px; font-weight:800; color:#94A3B8;">
+            PILOTO EN PISTA (O SELECCIONA DE LA COLA):
+          </label>
+          <span id="next-pilot-label" style="font-size:11px; color:#00E5FF; font-weight:800;">SIGUIENTE: VALKYRIE</span>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <input id="input-pilot-name" type="text" class="input-text" value="MAVERICK FPV" placeholder="Nombre del Piloto" />
+          <button id="btn-add-roster" class="status-pill" style="cursor:pointer; color:#00FF66; white-space:nowrap;">+ Agregar a Cola</button>
+        </div>
+
+        <div id="roster-pills-box" class="roster-pills"></div>
+      </div>
+
+      <!-- Monitor de Tiempo y Vuelta en Vivo para el Juez -->
+      <div style="background:#070A0F; border:1px solid rgba(255,255,255,0.12); border-radius:16px; padding:14px; text-align:center; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; font-size:11px; font-weight:800; color:#94A3B8; letter-spacing:1.2px;">
+          <span>TIEMPO OFICIAL EN PISTA</span>
+          <span id="admin-lap-counter" style="color:#00E5FF;">VUELTA 1 / 1</span>
+        </div>
+        <div id="admin-timer-preview" style="font-family:'JetBrains Mono', monospace; font-size:42px; font-weight:800; color:#00FF66; margin-top:2px;">
+          00:00.00
+        </div>
+      </div>
+
+      <div class="controls-grid">
+        <button id="btn-start-countdown" class="btn-race btn-countdown">
+          🚦 INICIAR CUENTA REGRESIVA (3, 2, 1)
+        </button>
+
+        <button id="btn-force-falsestart" class="btn-race btn-falsestart">
+          🚨 FORZAR FALSA SALIDA
+        </button>
+
+        <button id="btn-manual-stop" class="btn-race btn-stop">
+          🏁 MARCAR VUELTA / META MANUAL
+        </button>
+
+        <button id="btn-reset-system" class="btn-race btn-reset">
+          🔄 REINICIAR PISTA
+        </button>
+
+        <button id="btn-next-pilot" class="btn-race btn-next-pilot">
+          ⏭️ SIGUIENTE PILOTO EN COLA
+        </button>
+      </div>
+
+      <!-- Foto-Finish capturada automáticamente por el celular en la meta -->
+      <div class="photo-finish-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; font-weight:800; color:#94A3B8; margin-bottom:6px;">
+          <span>📸 ÚLTIMA FOTO-FINISH AUTOMÁTICA EN META</span>
+          <div style="display:flex; gap:8px;">
+            <button id="btn-export-csv" style="background:rgba(0,229,255,0.15); border:1px solid #00E5FF; color:#00E5FF; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">
+              📥 Exportar Ranking CSV
+            </button>
+            <button id="btn-clear-leaderboard" style="background:transparent; border:1px solid #FF1E42; color:#FF1E42; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:800; cursor:pointer;">
+              🗑️ Limpiar Ranking
+            </button>
+          </div>
+        </div>
+        <img id="admin-photofinish-img" alt="Esperando cruce de meta..." style="display:none;" />
+        <div id="admin-photofinish-empty" style="font-size:12px; color:#64748B; padding:16px 0;">
+          Se capturará automáticamente desde la cámara del teléfono cuando el dron cruce la meta.
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { rtdb, formatRaceTime } from "./js/firebase-config.js";
+
+    const radios = document.querySelectorAll('input[name="sensorMode"]');
+    const sliderMotion = document.getElementById("slider-motion");
+    const sliderAudio = document.getElementById("slider-audio");
+    const sliderLight = document.getElementById("slider-light");
+    const sliderCooldown = document.getElementById("slider-cooldown");
+    const sliderLaps = document.getElementById("slider-laps");
+
+    const lblMotion = document.getElementById("lbl-motion");
+    const lblAudio = document.getElementById("lbl-audio");
+    const lblLight = document.getElementById("lbl-light");
+    const lblCooldown = document.getElementById("lbl-cooldown");
+    const lblLaps = document.getElementById("lbl-laps");
+
+    const markerMotion = document.getElementById("marker-motion");
+    const markerAudio = document.getElementById("marker-audio");
+    const markerLight = document.getElementById("marker-light");
+
+    const chkPropFilter = document.getElementById("chk-prop-filter");
+    const chkTorchFlash = document.getElementById("chk-torch-flash");
+    const chkVoiceAnnouncer = document.getElementById("chk-voice-announcer");
+    const btnAutoCalibrate = document.getElementById("btn-auto-calibrate");
+
+    const inputPilot = document.getElementById("input-pilot-name");
+    const rosterPillsBox = document.getElementById("roster-pills-box");
+    const nextPilotLabel = document.getElementById("next-pilot-label");
+    const adminStatus = document.getElementById("admin-race-status");
+    const adminTimer = document.getElementById("admin-timer-preview");
+    const adminLapCounter = document.getElementById("admin-lap-counter");
+
+    let currentConfig = null;
+    let currentRaceState = null;
+    let currentLeaderboard = {};
+    let countdownTimer = null;
+
+    // 1. Selector de los 4 métodos de sensor
+    radios.forEach((radio) => {
+      radio.addEventListener("change", (e) => {
+        rtdb.updateNode("config", { sensorMode: e.target.value });
+      });
+    });
+
+    // 2. Sliders de Calibración en tiempo real
+    sliderMotion.addEventListener("input", (e) => {
+      const val = Number(e.target.value);
+      lblMotion.textContent = `${val}%`;
+      markerMotion.style.left = `${val}%`;
+      rtdb.updateNode("config", { motionThreshold: val });
+    });
+
+    sliderAudio.addEventListener("input", (e) => {
+      const val = Number(e.target.value);
+      lblAudio.textContent = `${val}%`;
+      markerAudio.style.left = `${val}%`;
+      rtdb.updateNode("config", { audioThreshold: val });
+    });
+
+    sliderLight.addEventListener("input", (e) => {
+      const val = Number(e.target.value);
+      lblLight.textContent = `${val}%`;
+      markerLight.style.left = `${val}%`;
+      rtdb.updateNode("config", { lightThreshold: val });
+    });
+
+    sliderCooldown.addEventListener("input", (e) => {
+      const val = Number(e.target.value);
+      lblCooldown.textContent = `${(val / 1000).toFixed(1)}s`;
+      rtdb.updateNode("config", { cooldownMs: val });
+    });
+
+    sliderLaps.addEventListener("input", (e) => {
+      const val = Number(e.target.value);
+      lblLaps.textContent = val === 1 ? "1 Vuelta (Sprint)" : `${val} Vueltas`;
+      rtdb.updateNode("config", { targetLaps: val });
+      rtdb.updateNode("race", { targetLaps: val });
+    });
+
+    chkPropFilter.addEventListener("change", (e) => {
+      rtdb.updateNode("config", { propellerFilter: e.target.checked });
+    });
+
+    chkTorchFlash.addEventListener("change", (e) => {
+      rtdb.updateNode("config", { useTorchFlash: e.target.checked });
+    });
+
+    chkVoiceAnnouncer.addEventListener("change", (e) => {
+      rtdb.updateNode("config", { voiceAnnouncer: e.target.checked });
+    });
+
+    // Auto-Calibración de 3 segundos
+    btnAutoCalibrate.addEventListener("click", () => {
+      btnAutoCalibrate.textContent = "⏳ Muestreando ambiente (3s)...";
+      rtdb.updateNode("config", { calibrateCommandAt: Date.now() });
+      setTimeout(() => {
+        btnAutoCalibrate.textContent = "✅ Ambiente Calibrado";
+        setTimeout(() => {
+          btnAutoCalibrate.textContent = "🪄 Auto-Calibrar Ambiente (3s)";
+        }, 2000);
+      }, 3200);
+    });
+
+    // Gestión de Piloto y Cola (Roster)
+    inputPilot.addEventListener("input", (e) => {
+      rtdb.updateNode("race", { pilotName: e.target.value.toUpperCase() || "PILOTO 01" });
+    });
+
+    document.getElementById("btn-add-roster").addEventListener("click", () => {
+      const newName = (inputPilot.value || "").trim().toUpperCase();
+      if (!newName || !currentRaceState) return;
+      const roster = Array.isArray(currentRaceState.roster) ? [...currentRaceState.roster] : [];
+      if (!roster.includes(newName)) {
+        roster.push(newName);
+        rtdb.updateNode("race", { roster });
+      }
+    });
+
+    document.getElementById("btn-next-pilot").addEventListener("click", () => {
+      if (!currentRaceState || !Array.isArray(currentRaceState.roster) || currentRaceState.roster.length === 0) return;
+      const roster = currentRaceState.roster;
+      const nextIdx = ((currentRaceState.rosterIndex || 0) + 1) % roster.length;
+      const followingIdx = (nextIdx + 1) % roster.length;
+
+      clearInterval(countdownTimer);
+      rtdb.updateNode("race", {
+        status: "IDLE",
+        rosterIndex: nextIdx,
+        pilotName: roster[nextIdx],
+        nextPilotName: roster[followingIdx],
+        countdownValue: 3,
+        startTime: 0,
+        finishTime: 0,
+        elapsedMs: 0,
+        currentLap: 1,
+        lapSplits: [],
+        bestLapMs: 0,
+        falseStartReason: "",
+        lastUpdated: Date.now()
+      });
+    });
+
+    function renderRosterPills(race) {
+      const roster = Array.isArray(race.roster) ? race.roster : ["MAVERICK FPV", "VALKYRIE", "NITRO DRONE"];
+      rosterPillsBox.innerHTML = roster
+        .map((name, idx) => {
+          const isCurrent = name === race.pilotName;
+          return `<button class="roster-pill ${isCurrent ? "active" : ""}" data-idx="${idx}" data-name="${name}">
+            ${isCurrent ? "🚁 " : ""}${name}
+          </button>`;
+        })
+        .join("");
+
+      rosterPillsBox.querySelectorAll(".roster-pill").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const idx = Number(btn.dataset.idx);
+          const nextIdx = (idx + 1) % roster.length;
+          rtdb.updateNode("race", {
+            rosterIndex: idx,
+            pilotName: roster[idx],
+            nextPilotName: roster[nextIdx]
+          });
+        });
+      });
+    }
+
+    // 3. Botón: Iniciar Cuenta Regresiva (3, 2, 1)
+    document.getElementById("btn-start-countdown").addEventListener("click", () => {
+      clearInterval(countdownTimer);
+      const pilotName = (inputPilot.value || "PILOTO 01").trim().toUpperCase();
+      const targetLaps = currentConfig ? (currentConfig.targetLaps || 1) : 1;
+      let count = 3;
+
+      rtdb.updateNode("race", {
+        status: "COUNTDOWN",
+        pilotName,
+        countdownValue: 3,
+        countdownStartedAt: Date.now(),
+        startTime: 0,
+        finishTime: 0,
+        elapsedMs: 0,
+        currentLap: 1,
+        targetLaps,
+        lapSplits: [],
+        bestLapMs: 0,
+        falseStartReason: "",
+        lastUpdated: Date.now()
+      });
+
+      countdownTimer = setInterval(() => {
+        if (currentRaceState && currentRaceState.status === "FALSE_START") {
+          clearInterval(countdownTimer);
+          return;
+        }
+
+        count--;
+        if (count > 0) {
+          rtdb.updateNode("race", {
+            countdownValue: count,
+            lastUpdated: Date.now()
+          });
+        } else {
+          clearInterval(countdownTimer);
+          rtdb.updateNode("race", {
+            status: "RUNNING",
+            countdownValue: 0,
+            startTime: Date.now(),
+            lastUpdated: Date.now()
+          });
+        }
+      }, 1000);
+    });
+
+    // 4. Botón: Forzar Falsa Salida
+    document.getElementById("btn-force-falsestart").addEventListener("click", () => {
+      clearInterval(countdownTimer);
+      rtdb.updateNode("race", {
+        status: "FALSE_START",
+        falseStartReason: "PENALIZACIÓN MANUAL DEL JUEZ",
+        lastUpdated: Date.now()
+      });
+    });
+
+    // 5. Botón: Marcar Vuelta o Detener Manualmente
+    document.getElementById("btn-manual-stop").addEventListener("click", async () => {
+      clearInterval(countdownTimer);
+      if (!currentRaceState || currentRaceState.status !== "RUNNING") return;
+
+      const now = Date.now();
+      const totalElapsed = Math.max(0, now - currentRaceState.startTime);
+      const splits = Array.isArray(currentRaceState.lapSplits) ? [...currentRaceState.lapSplits] : [];
+      const prevSplitsSum = splits.reduce((a, b) => a + b, 0);
+      const thisLapTime = Math.max(1, totalElapsed - prevSplitsSum);
+      splits.push(thisLapTime);
+      const bestLapMs = Math.min(...splits);
+
+      const currentLap = currentRaceState.currentLap || 1;
+      const targetLaps = currentRaceState.targetLaps || 1;
+
+      if (currentLap < targetLaps) {
+        await rtdb.updateNode("race", {
+          currentLap: currentLap + 1,
+          lapSplits: splits,
+          bestLapMs,
+          lastUpdated: now
+        });
+      } else {
+        await rtdb.updateNode("race", {
+          status: "FINISHED",
+          finishTime: now,
+          elapsedMs: totalElapsed,
+          lapSplits: splits,
+          bestLapMs,
+          lastUpdated: now
+        });
+
+        await rtdb.pushLeaderboardEntry({
+          pilotName: currentRaceState.pilotName || "PILOTO 01",
+          elapsedMs: totalElapsed,
+          bestLapMs,
+          laps: targetLaps,
+          sensorMode: "manual",
+          timestamp: now
+        });
+      }
+    });
+
+    // 6. Botón: Reiniciar Pista
+    document.getElementById("btn-reset-system").addEventListener("click", () => {
+      clearInterval(countdownTimer);
+      rtdb.updateNode("race", {
+        status: "IDLE",
+        countdownValue: 3,
+        startTime: 0,
+        finishTime: 0,
+        elapsedMs: 0,
+        currentLap: 1,
+        lapSplits: [],
+        bestLapMs: 0,
+        falseStartReason: "",
+        lastUpdated: Date.now()
+      });
+    });
+
+    // 7. Exportar Ranking a CSV (Excel)
+    document.getElementById("btn-export-csv").addEventListener("click", () => {
+      const entries = Object.values(currentLeaderboard || {})
+        .filter((i) => i && typeof i.elapsedMs === "number")
+        .sort((a, b) => a.elapsedMs - b.elapsedMs);
+
+      const header = "Posicion,Piloto,TiempoTotal_Fmt,TiempoTotal_Ms,MejorVuelta_Fmt,Vueltas,Sensor,Fecha\n";
+      const rows = entries
+        .map((item, idx) => {
+          const dateStr = new Date(item.timestamp || Date.now()).toLocaleString("es-CL");
+          return `${idx + 1},"${item.pilotName}",${formatRaceTime(item.elapsedMs)},${item.elapsedMs},${formatRaceTime(item.bestLapMs || item.elapsedMs)},${item.laps || 1},${item.sensorMode || "vision"},"${dateStr}"`;
+        })
+        .join("\n");
+
+      const blob = new Blob([header + rows], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `resultados-carrera-drones-${Date.now()}.csv`;
+      a.click();
+    });
+
+    document.getElementById("btn-clear-leaderboard").addEventListener("click", () => {
+      rtdb.clearLeaderboard();
+    });
+
+    // Suscripciones en tiempo real
+    rtdb.subscribe("config", (cfg) => {
+      if (!cfg) return;
+      currentConfig = cfg;
+      document.querySelectorAll(".sensor-radio-card").forEach((c) => c.classList.remove("active"));
+      const activeCard = document.getElementById(`card-mode-${cfg.sensorMode}`);
+      if (activeCard) activeCard.classList.add("active");
+
+      const radio = document.querySelector(`input[name="sensorMode"][value="${cfg.sensorMode}"]`);
+      if (radio) radio.checked = true;
+
+      const labels = {
+        vision: "VISIÓN ARTIFICIAL (CÁMARA)",
+        audio: "ACÚSTICO FFT (HÉLICES)",
+        light: "BLOQUEO DE LUZ (FOTÓMETRO)",
+        fusion: "FUSIÓN DUAL (VISIÓN + AUDIO)"
+      };
+      document.getElementById("active-sensor-pill").textContent = `ACTIVO: ${labels[cfg.sensorMode] || cfg.sensorMode}`;
+
+      sliderMotion.value = cfg.motionThreshold;
+      lblMotion.textContent = `${cfg.motionThreshold}%`;
+      markerMotion.style.left = `${cfg.motionThreshold}%`;
+
+      sliderAudio.value = cfg.audioThreshold;
+      lblAudio.textContent = `${cfg.audioThreshold}%`;
+      markerAudio.style.left = `${cfg.audioThreshold}%`;
+
+      sliderLight.value = cfg.lightThreshold;
+      lblLight.textContent = `${cfg.lightThreshold}%`;
+      markerLight.style.left = `${cfg.lightThreshold}%`;
+
+      if (cfg.cooldownMs) {
+        sliderCooldown.value = cfg.cooldownMs;
+        lblCooldown.textContent = `${(cfg.cooldownMs / 1000).toFixed(1)}s`;
+      }
+      if (cfg.targetLaps) {
+        sliderLaps.value = cfg.targetLaps;
+        lblLaps.textContent = cfg.targetLaps === 1 ? "1 Vuelta (Sprint)" : `${cfg.targetLaps} Vueltas`;
+      }
+      chkPropFilter.checked = cfg.propellerFilter !== false;
+      chkTorchFlash.checked = cfg.useTorchFlash !== false;
+      chkVoiceAnnouncer.checked = cfg.voiceAnnouncer !== false;
+    });
+
+    rtdb.subscribe("telemetry", (tel) => {
+      if (!tel) return;
+      document.getElementById("live-val-motion").textContent = `${tel.liveMotion || 0}%`;
+      document.getElementById("bar-live-motion").style.width = `${tel.liveMotion || 0}%`;
+
+      document.getElementById("live-val-audio").textContent = `${tel.liveAudio || 0}%`;
+      document.getElementById("bar-live-audio").style.width = `${tel.liveAudio || 0}%`;
+
+      document.getElementById("live-val-light").textContent = `${tel.liveLight || 0}%`;
+      document.getElementById("bar-live-light").style.width = `${tel.liveLight || 0}%`;
+    });
+
+    rtdb.subscribe("race", (race) => {
+      if (!race) return;
+      currentRaceState = race;
+      adminStatus.textContent = `ESTADO: ${race.status}`;
+      adminLapCounter.textContent = `VUELTA ${race.currentLap || 1} / ${race.targetLaps || 1}`;
+      nextPilotLabel.textContent = `SIGUIENTE: ${race.nextPilotName || "VALKYRIE"}`;
+
+      if (document.activeElement !== inputPilot && race.pilotName) {
+        inputPilot.value = race.pilotName;
+      }
+      renderRosterPills(race);
+
+      const pfImg = document.getElementById("admin-photofinish-img");
+      const pfEmpty = document.getElementById("admin-photofinish-empty");
+      if (race.photoFinishDataUrl) {
+        pfImg.src = race.photoFinishDataUrl;
+        pfImg.style.display = "block";
+        pfEmpty.style.display = "none";
+      } else {
+        pfImg.style.display = "none";
+        pfEmpty.style.display = "block";
+      }
+    });
+
+    rtdb.subscribe("leaderboard", (lb) => {
+      currentLeaderboard = lb || {};
+    });
+
+    function renderAdminClock() {
+      if (currentRaceState) {
+        if (currentRaceState.status === "RUNNING" && currentRaceState.startTime > 0) {
+          adminTimer.textContent = formatRaceTime(Date.now() - currentRaceState.startTime);
+          adminTimer.style.color = "#00FF66";
+        } else if (currentRaceState.status === "FINISHED") {
+          adminTimer.textContent = formatRaceTime(currentRaceState.elapsedMs);
+          adminTimer.style.color = "#00E5FF";
+        } else if (currentRaceState.status === "FALSE_START") {
+          adminTimer.textContent = "FALSA SALIDA";
+          adminTimer.style.color = "#FF1E42";
+        } else {
+          adminTimer.textContent = "00:00.00";
+          adminTimer.style.color = "#94A3B8";
+        }
+      }
+      requestAnimationFrame(renderAdminClock);
+    }
+    requestAnimationFrame(renderAdminClock);
+  </script>
+</body>
+</html>

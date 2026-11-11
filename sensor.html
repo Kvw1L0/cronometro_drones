@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#070A0F" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="./manifest.json" />
+  <title>Track Sensor PWA PRO · Drone Chrono</title>
+  <link rel="stylesheet" href="./css/styles.css" />
+</head>
+<body class="sensor-page state-IDLE">
+  <div class="sensor-hud">
+    <!-- BARRA SUPERIOR DEL SENSOR EN PISTA -->
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+      <div class="status-pill" style="background:rgba(0,0,0,0.45);">
+        <span class="status-dot"></span>
+        <span id="sensor-mode-badge">MODO: VISIÓN</span>
+      </div>
+
+      <div style="display:flex; gap:8px;">
+        <button id="btn-switch-cam" class="status-pill" style="background:rgba(0,0,0,0.55); color:#FFF; cursor:pointer;">
+          🔄 Cambiar Cámara
+        </button>
+        <span id="wakelock-badge" class="status-pill" style="background:rgba(0,0,0,0.45); color:#FFF780;">
+          🔒 WakeLock: Inactivo
+        </span>
+      </div>
+    </div>
+
+    <!-- INDICADOR GIGANTE DE ESTADO, VUELTA Y CONTEO EN PISTA -->
+    <div class="sensor-big-state">
+      <div id="sensor-lap-pill" style="display:inline-block; background:rgba(0,0,0,0.45); padding:4px 14px; border-radius:20px; font-family:'Orbitron', sans-serif; font-size:13px; font-weight:800; color:#00E5FF; margin-bottom:8px;">
+        VUELTA 1 / 1
+      </div>
+      <div id="sensor-main-display" class="sensor-countdown-num">LISTO</div>
+      <div id="sensor-sub-display" class="sensor-sub-label">TOCA "ACTIVAR SENSORES" PARA ARMAR LA PISTA</div>
+
+      <button id="btn-arm-hardware" class="btn-race btn-countdown" style="margin: 18px auto 0; max-width: 340px;">
+        ⚡ ACTIVAR CÁMARA, AUDIO Y WAKELOCK
+      </button>
+    </div>
+
+    <!-- PREVIEW DE CÁMARA + CANVAS DE PROCESAMIENTO OCULTO + TELEMETRÍA EN VIVO -->
+    <div>
+      <div class="sensor-cam-box">
+        <video id="sensor-video" playsinline autoplay muted></video>
+        <canvas id="sensor-proc-canvas" style="display:none;"></canvas>
+      </div>
+
+      <div style="max-width:400px; margin:0 auto; background:rgba(0,0,0,0.55); padding:10px 14px; border-radius:14px; font-family:'JetBrains Mono', monospace; font-size:12px; display:flex; justify-content:space-between;">
+        <span>👁️ MOV: <strong id="tel-motion">0%</strong></span>
+        <span>🎙️ FFT: <strong id="tel-audio">0%</strong></span>
+        <span>☀️ LUZ: <strong id="tel-light">50%</strong></span>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { rtdb, formatRaceTime } from "./js/firebase-config.js";
+    import { MultiSensorEngine, SoundBuzzer, requestTrackWakeLock } from "./js/sensors.js";
+
+    const videoEl = document.getElementById("sensor-video");
+    const canvasEl = document.getElementById("sensor-proc-canvas");
+    const mainDisplay = document.getElementById("sensor-main-display");
+    const subDisplay = document.getElementById("sensor-sub-display");
+    const lapPill = document.getElementById("sensor-lap-pill");
+    const modeBadge = document.getElementById("sensor-mode-badge");
+    const wakeBadge = document.getElementById("wakelock-badge");
+    const btnArm = document.getElementById("btn-arm-hardware");
+    const btnSwitchCam = document.getElementById("btn-switch-cam");
+
+    const buzzer = new SoundBuzzer();
+    let currentConfig = {
+      sensorMode: "vision",
+      motionThreshold: 28,
+      audioThreshold: 62,
+      lightThreshold: 40,
+      cooldownMs: 2500,
+      targetLaps: 1,
+      propellerFilter: true,
+      useTorchFlash: true,
+      calibrateCommandAt: 0
+    };
+    let currentRace = {
+      status: "IDLE",
+      pilotName: "MAVERICK FPV",
+      countdownValue: 3,
+      startTime: 0,
+      currentLap: 1,
+      targetLaps: 1,
+      lapSplits: []
+    };
+
+    let lastPlayedCountdownVal = null;
+    let lastHandledCalibCmd = 0;
+    let lastLapCrossTimestamp = 0;
+
+    const sensorEngine = new MultiSensorEngine(
+      videoEl,
+      canvasEl,
+      handleSensorTrigger,
+      (metrics) => {
+        document.getElementById("tel-motion").textContent = `${metrics.motion}%`;
+        document.getElementById("tel-audio").textContent = `${metrics.audio}%`;
+        document.getElementById("tel-light").textContent = `${metrics.light}%`;
+
+        rtdb.updateNode("telemetry", {
+          liveMotion: metrics.motion,
+          liveAudio: metrics.audio,
+          liveLight: metrics.light,
+          calibrating: metrics.calibrating || false,
+          sensorOnline: true,
+          updatedAt: Date.now()
+        });
+      }
+    );
+
+    btnArm.addEventListener("click", async () => {
+      try {
+        buzzer.init();
+        buzzer.playShortTick();
+        await sensorEngine.startHardware("environment");
+        await requestTrackWakeLock((active) => {
+          wakeBadge.textContent = active ? "🔒 WakeLock: ACTIVO" : "🔓 WakeLock: Inactivo";
+        });
+        btnArm.style.display = "none";
+        subDisplay.textContent = "SENSOR ARMADO EN PISTA · ESPERANDO ORDEN DEL ADMIN";
+      } catch (err) {
+        alert("Permite el acceso a Cámara y Micrófono para usar el teléfono como sensor: " + err.message);
+      }
+    });
+
+    btnSwitchCam.addEventListener("click", async () => {
+      if (!sensorEngine.isRunning) return;
+      await sensorEngine.toggleCameraFacing();
+    });
+
+    /**
+     * Lógica central de disparo del sensor (Falsa Salida, Split de Vuelta Intermedia y Meta con Foto-Finish)
+     */
+    async function handleSensorTrigger(event) {
+      const now = Date.now();
+
+      // 1. DETECCIÓN DE FALSA SALIDA DURANTE EL CONTEO (3, 2, 1)
+      if (currentRace.status === "COUNTDOWN") {
+        if (event.mode === "light" && event.type !== "LIGHT_OPENED") return;
+
+        buzzer.playFalseStartAlarm();
+        sensorEngine.pulseTorchFlash(450);
+        await rtdb.updateNode("race", {
+          status: "FALSE_START",
+          falseStartReason: `FALSA SALIDA DETECTADA POR SENSOR (${event.mode.toUpperCase()}: ${event.value}%)`,
+          lastUpdated: now
+        });
+        return;
+      }
+
+      // 2. CRUCE DE VUELTA O LLEGADA A META DURANTE RUNNING
+      if (currentRace.status === "RUNNING" && currentRace.startTime > 0) {
+        const cooldown = currentConfig.cooldownMs || 2500;
+        const referenceTime = lastLapCrossTimestamp > currentRace.startTime ? lastLapCrossTimestamp : currentRace.startTime;
+
+        // Respetar el Cooldown anti-rebote desde el despegue o desde la última vuelta marcada
+        if (now - referenceTime < cooldown) return;
+
+        if (event.mode === "light" && event.type !== "LIGHT_BLOCKED") return;
+
+        lastLapCrossTimestamp = now;
+        const totalElapsed = now - currentRace.startTime;
+        const splits = Array.isArray(currentRace.lapSplits) ? [...currentRace.lapSplits] : [];
+        const prevSplitsSum = splits.reduce((a, b) => a + b, 0);
+        const thisLapMs = Math.max(1, totalElapsed - prevSplitsSum);
+        splits.push(thisLapMs);
+        const bestLapMs = Math.min(...splits);
+
+        const currentLap = currentRace.currentLap || 1;
+        const targetLaps = currentRace.targetLaps || 1;
+
+        // Si aún faltan vueltas por completar -> Marcar Split Time sin detener el reloj
+        if (currentLap < targetLaps) {
+          buzzer.playLapSplitBeep();
+          sensorEngine.pulseTorchFlash(200);
+          await rtdb.updateNode("race", {
+            currentLap: currentLap + 1,
+            lapSplits: splits,
+            bestLapMs,
+            lastUpdated: now
+          });
+          return;
+        }
+
+        // ¡ÚLTIMA VUELTA COMPLETADA! Detener cronómetro, disparar Flash y capturar Foto-Finish
+        buzzer.playLongGo();
+        sensorEngine.pulseTorchFlash(600);
+        const photoFinishDataUrl = sensorEngine.capturePhotoFinishSnapshot(
+          currentRace.pilotName || "PILOTO",
+          formatRaceTime(totalElapsed)
+        );
+
+        await rtdb.updateNode("race", {
+          status: "FINISHED",
+          finishTime: now,
+          elapsedMs: totalElapsed,
+          lapSplits: splits,
+          bestLapMs,
+          photoFinishDataUrl,
+          lastUpdated: now
+        });
+
+        await rtdb.pushLeaderboardEntry({
+          pilotName: currentRace.pilotName || "PILOTO 01",
+          elapsedMs: totalElapsed,
+          bestLapMs,
+          laps: targetLaps,
+          sensorMode: event.mode,
+          timestamp: now
+        });
+      }
+    }
+
+    // Escuchar configuración y comando de Auto-Calibración de 3s desde Admin
+    rtdb.subscribe("config", (cfg) => {
+      if (!cfg) return;
+      currentConfig = cfg;
+      sensorEngine.updateConfig(cfg);
+
+      const modeNames = {
+        vision: "👁️ VISIÓN (PÍXELES)",
+        audio: "🎙️ ACÚSTICO FFT (HÉLICES)",
+        light: "☀️ FOTÓMETRO (LUZ)",
+        fusion: "🛡️ FUSIÓN (VISIÓN + AUDIO)"
+      };
+      modeBadge.textContent = `MODO: ${modeNames[cfg.sensorMode] || cfg.sensorMode}`;
+
+      if (cfg.calibrateCommandAt && cfg.calibrateCommandAt > lastHandledCalibCmd) {
+        if (lastHandledCalibCmd !== 0) {
+          subDisplay.textContent = "🪄 CALIBRANDO RUIDO Y LUZ DE PISTA (3s)...";
+          sensorEngine.runAutoCalibration(3000, (recommended) => {
+            rtdb.updateNode("config", recommended);
+            buzzer.playLapSplitBeep();
+            subDisplay.textContent = "✅ SENSORES CALIBRADOS AUTOMÁTICAMENTE";
+          });
+        }
+        lastHandledCalibCmd = cfg.calibrateCommandAt;
+      }
+    });
+
+    // Escuchar estado de la carrera
+    rtdb.subscribe("race", (race) => {
+      if (!race) return;
+      const prevStatus = currentRace.status;
+      currentRace = race;
+
+      document.body.className = `sensor-page state-${race.status}`;
+      lapPill.textContent = `VUELTA ${race.currentLap || 1} / ${race.targetLaps || 1}`;
+
+      if (race.status === "IDLE") {
+        lastPlayedCountdownVal = null;
+        lastLapCrossTimestamp = 0;
+        mainDisplay.textContent = "LISTO";
+        subDisplay.textContent = `EN PISTA: ${race.pilotName || "PILOTO 01"}`;
+      } else if (race.status === "COUNTDOWN") {
+        lastLapCrossTimestamp = 0;
+        mainDisplay.textContent = race.countdownValue;
+        subDisplay.textContent = "¡ATENCIÓN EN PISTA! NO DESPEGAR ANTES DE CERO";
+        if (race.countdownValue !== lastPlayedCountdownVal) {
+          lastPlayedCountdownVal = race.countdownValue;
+          buzzer.playShortTick();
+        }
+      } else if (race.status === "RUNNING") {
+        if (prevStatus === "COUNTDOWN") {
+          buzzer.playLongGo();
+          sensorEngine.pulseTorchFlash(350);
+        }
+        mainDisplay.textContent = `V${race.currentLap || 1}`;
+        subDisplay.textContent = "EN VUELO · ESPERANDO PASO POR META";
+      } else if (race.status === "FALSE_START") {
+        if (prevStatus !== "FALSE_START") {
+          buzzer.playFalseStartAlarm();
+        }
+        mainDisplay.textContent = "FALTA";
+        subDisplay.textContent = race.falseStartReason || "¡FALSA SALIDA DETECTADA!";
+      } else if (race.status === "FINISHED") {
+        mainDisplay.textContent = formatRaceTime(race.elapsedMs);
+        subDisplay.textContent = `🏁 META REGISTRADA (${race.pilotName})`;
+      }
+    });
+
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("./sw.js").catch(() => {});
+    }
+  </script>
+</body>
+</html>

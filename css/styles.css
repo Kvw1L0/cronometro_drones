@@ -1,0 +1,643 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@600;800&display=swap');
+
+:root {
+  --bg-dark: #070A0F;
+  --bg-card: #111622;
+  --bg-card-alt: #161D2E;
+  --border-subtle: rgba(255, 255, 255, 0.12);
+  --text-main: #F8FAFC;
+  --text-muted: #94A3B8;
+  --neon-green: #00FF66;
+  --neon-red: #FF1E42;
+  --neon-amber: #FFB800;
+  --neon-cyan: #00E5FF;
+  --neon-purple: #8B5CF6;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ==========================================================================
+   HEADER DE NAVEGACIÓN & ESTADO DE CONEXIÓN
+   ========================================================================== */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(17, 22, 34, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.brand-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 17px;
+  letter-spacing: 1px;
+  color: #FFFFFF;
+}
+
+.brand-badge {
+  background: var(--neon-cyan);
+  color: #000;
+  font-size: 10px;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 1.2px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 6px 14px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--neon-green);
+  box-shadow: 0 0 10px var(--neon-green);
+}
+
+/* ==========================================================================
+   LAYOUT ADMIN (admin.html)
+   ========================================================================== */
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 20px;
+  max-width: 1400px;
+  margin: 18px auto;
+  padding: 0 20px;
+}
+
+@media (max-width: 1024px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.45);
+}
+
+.panel-title {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1.3px;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sensor-selector-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 640px) {
+  .sensor-selector-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.sensor-radio-card {
+  position: relative;
+  cursor: pointer;
+  background: var(--bg-card-alt);
+  border: 2px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 12px 10px;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.sensor-radio-card input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sensor-radio-card.active {
+  border-color: var(--neon-cyan);
+  background: rgba(0, 229, 255, 0.12);
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.2);
+}
+
+.sensor-radio-card .icon {
+  font-size: 22px;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.sensor-radio-card .title {
+  font-weight: 800;
+  font-size: 12px;
+  display: block;
+}
+
+.sensor-radio-card .sub {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
+  display: block;
+}
+
+/* SLIDERS DE CALIBRACIÓN EN VIVO CON TELEMETRÍA */
+.calibration-row {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.calibration-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.calibration-values {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  color: var(--neon-amber);
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--neon-cyan);
+  height: 7px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.live-meter-track {
+  position: relative;
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+
+.live-meter-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--neon-cyan), var(--neon-green));
+  transition: width 0.12s linear;
+}
+
+.threshold-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--neon-red);
+  box-shadow: 0 0 6px var(--neon-red);
+  z-index: 2;
+}
+
+/* TOGGLES DE HARDWARE & OPCIONES PRO */
+.pro-options-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.toggle-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.toggle-chip input {
+  accent-color: var(--neon-green);
+}
+
+/* BOTONES DE MANDO DE CARRERA */
+.controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btn-race {
+  border: none;
+  border-radius: 14px;
+  padding: 14px 16px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.btn-race:active {
+  transform: scale(0.97);
+}
+
+.btn-countdown {
+  grid-column: span 2;
+  background: linear-gradient(135deg, #00FF66, #059669);
+  color: #03150A;
+  font-size: 15px;
+  box-shadow: 0 8px 25px rgba(0, 255, 102, 0.3);
+}
+
+.btn-falsestart {
+  background: linear-gradient(135deg, #FF1E42, #B91C1C);
+  color: #FFFFFF;
+  box-shadow: 0 8px 25px rgba(255, 30, 66, 0.3);
+}
+
+.btn-stop {
+  background: linear-gradient(135deg, #FFB800, #D97706);
+  color: #1A1000;
+  box-shadow: 0 8px 25px rgba(255, 184, 0, 0.25);
+}
+
+.btn-reset {
+  background: rgba(255, 255, 255, 0.08);
+  color: #FFFFFF;
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-next-pilot {
+  background: linear-gradient(135deg, #00E5FF, #0284C7);
+  color: #02121A;
+}
+
+.input-text {
+  width: 100%;
+  background: var(--bg-card-alt);
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 700;
+  outline: none;
+}
+
+.input-text:focus {
+  border-color: var(--neon-cyan);
+}
+
+/* ROSTER PILLS */
+.roster-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.roster-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.roster-pill.active {
+  background: rgba(0, 255, 102, 0.16);
+  border-color: var(--neon-green);
+  color: var(--neon-green);
+}
+
+/* ==========================================================================
+   INTERFAZ SENSOR EN PISTA (sensor.html)
+   ========================================================================== */
+body.sensor-page {
+  transition: background-color 0.18s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+body.sensor-page.state-IDLE,
+body.sensor-page.state-ARMED {
+  background-color: #7F1D1D;
+}
+
+body.sensor-page.state-COUNTDOWN {
+  background-color: #D97706;
+}
+
+body.sensor-page.state-RUNNING {
+  background-color: #059669;
+}
+
+body.sensor-page.state-FALSE_START {
+  animation: falseStartFlash 0.35s infinite alternate;
+}
+
+body.sensor-page.state-FINISHED {
+  background-color: #0F172A;
+}
+
+@keyframes falseStartFlash {
+  from { background-color: #FF0033; }
+  to { background-color: #2A0008; }
+}
+
+.sensor-hud {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.sensor-big-state {
+  text-align: center;
+  margin: auto 0;
+}
+
+.sensor-countdown-num {
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(38px, 11vw, 96px);
+  font-weight: 900;
+  line-height: 1.05;
+  letter-spacing: -1px;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: clip;
+  text-shadow: 0 10px 35px rgba(0, 0, 0, 0.65);
+}
+
+.sensor-sub-label {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-top: 8px;
+  opacity: 0.92;
+}
+
+.sensor-cam-box {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin: 10px auto;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  background: #000;
+  aspect-ratio: 4 / 3;
+}
+
+.sensor-cam-box video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ==========================================================================
+   DASHBOARD PÚBLICO LED (dashboard.html) - FIA F1 LIGHTS + SPLIT DELTAS
+   ========================================================================== */
+body.dashboard-page {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(0, 229, 255, 0.10), transparent 55%),
+    radial-gradient(circle at 80% 80%, rgba(0, 255, 102, 0.08), transparent 55%),
+    #04060A;
+}
+
+.dashboard-layout {
+  display: grid;
+  grid-template-columns: 1.65fr 1fr;
+  gap: 24px;
+  max-width: 1680px;
+  min-height: calc(100vh - 70px);
+  margin: 0 auto;
+  padding: 22px;
+  align-items: stretch;
+}
+
+@media (max-width: 1100px) {
+  .dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chrono-stage {
+  background: rgba(14, 19, 31, 0.92);
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65);
+}
+
+/* SEMÁFORO FIA 5 LUCES */
+.f1-gantry {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  background: #070A0F;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  padding: 12px 26px;
+  border-radius: 20px;
+  margin: 10px auto;
+}
+
+.f1-light {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #1E293B;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  transition: all 0.1s ease;
+}
+
+.f1-light.red-on {
+  background: #FF1E42;
+  box-shadow: 0 0 25px #FF1E42, 0 0 45px #FF1E42;
+}
+
+.f1-light.green-on {
+  background: #00FF66;
+  box-shadow: 0 0 25px #00FF66, 0 0 45px #00FF66;
+}
+
+.chrono-digits {
+  font-family: 'JetBrains Mono', 'Orbitron', monospace;
+  font-size: clamp(54px, 9.8vw, 148px);
+  font-weight: 800;
+  letter-spacing: -2px;
+  color: var(--neon-green);
+  text-shadow: 0 0 38px rgba(0, 255, 102, 0.45);
+  text-align: center;
+  margin: auto 0;
+  line-height: 1;
+}
+
+.chrono-digits.false-start {
+  color: var(--neon-red);
+  text-shadow: 0 0 40px rgba(255, 30, 66, 0.7);
+}
+
+.false-start-banner {
+  display: none;
+  background: linear-gradient(90deg, #FF0033, #B91C1C);
+  color: #FFFFFF;
+  font-family: 'Orbitron', sans-serif;
+  font-size: clamp(20px, 3vw, 38px);
+  font-weight: 900;
+  text-align: center;
+  padding: 16px;
+  border-radius: 16px;
+  letter-spacing: 2px;
+  box-shadow: 0 0 40px rgba(255, 0, 51, 0.65);
+  animation: pulseAlert 0.45s infinite alternate;
+}
+
+.false-start-banner.show {
+  display: block;
+}
+
+@keyframes pulseAlert {
+  from { transform: scale(0.98); opacity: 0.9; }
+  to { transform: scale(1.02); opacity: 1; }
+}
+
+.splits-row {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.split-badge {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: #E2E8F0;
+}
+
+.leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.leader-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 12px 16px;
+}
+
+.leader-item:first-child {
+  border-color: var(--neon-amber);
+  background: rgba(255, 184, 0, 0.12);
+}
+
+.leader-rank {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 17px;
+  color: var(--neon-amber);
+  width: 34px;
+}
+
+.leader-pilot {
+  flex: 1;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.leader-time {
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 800;
+  font-size: 17px;
+  color: var(--neon-green);
+}
+
+.photo-finish-box {
+  margin-top: 14px;
+  background: #070A0F;
+  border: 1.5px solid var(--border-subtle);
+  border-radius: 14px;
+  padding: 10px;
+  text-align: center;
+}
+
+.photo-finish-box img {
+  width: 100%;
+  max-height: 155px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 255, 102, 0.35);
+}

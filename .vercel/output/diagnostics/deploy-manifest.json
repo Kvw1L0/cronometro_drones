@@ -1,0 +1,1 @@
+{"manifestVersion":"2.0","builds":{"@vercel/static:.":{"runtime":"static","buildType":"app","dependencies":[],"root":".","workspace":".","builder":"@vercel/static"}},"services":{}}
